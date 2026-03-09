@@ -11,71 +11,6 @@
 #include "raygui.h"
 #include "tinyfiledialogs.h"
 
-
-int main2(){
-    HANDLE readPipe;
-    HANDLE writePipe;
-    SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
-
-    CreatePipe(&readPipe, &writePipe, &sa, 0);
-    SetHandleInformation(readPipe, HANDLE_FLAG_INHERIT, 0);
-
-    STARTUPINFOA si = {0};
-    PROCESS_INFORMATION pi = {0};
-
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESTDHANDLES;
-    si.hStdOutput = writePipe;
-    si.hStdError = writePipe;
-    si.hStdInput = NULL;
-
-    char *cmd = "yt-dlp --newline --progress -f mp4 -o \"a.mp4\" \"https://www.youtube.com/watch?v=JJcxo7_k5DA&t=6328s\"";
-
-    if(!CreateProcessA(
-            NULL,
-            cmd,
-            NULL,
-            NULL,
-            TRUE,
-            CREATE_NO_WINDOW,
-            NULL,
-            NULL,
-            &si,
-            &pi
-    )){
-        printf("CreateProcess failed\n");
-        return 1;
-    }
-
-    CloseHandle(writePipe);
-
-    char buffer[4096];
-    DWORD read;
-    while(ReadFile(readPipe, buffer, sizeof(buffer) - 1, &read, NULL)){
-        if(*(buffer+1) != 'd')continue;
-        char * buf = buffer;
-        buffer[read] = 0; // [download] 111.4% of  147.01MiB at    4.42MiB/s ETA 00:32
-        printf("%s", buffer);   // здесь можно парсить прогресс
-        buf += strlen("[download] ");
-        //while(isspace(*buf))buf++;
-        float percentage = strtof(buf, NULL);
-        while(*buf != 'a')buf++;
-        buf += 2; // 'at ...' -> '...'
-        char speed[14] = {0};
-        while(isspace(*buf))buf++;
-        for(int i = 0; i < 14 && !isspace(*buf); ++i, ++buf)
-            speed[i] = *buf;
-        printf("GOTTEN: %0.3f, %s\n", percentage/100, speed);
-
-    }
-
-    WaitForSingleObject(pi.hProcess, INFINITE);
-
-    CloseHandle(readPipe);
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
-}
-
 int main(){
     SetTraceLogLevel(LOG_WARNING);
     InitWindow(800, 600, "Youtube video downloader");
@@ -87,8 +22,7 @@ int main(){
     HANDLE readPipe = NULL;
     PROCESS_INFORMATION pi = {0};
     float percentage = 0;
-    char speed[14];
-    memset(speed, 0, 14);
+    char speed[14] = {0};
     while (!WindowShouldClose()){
         BeginDrawing();
         ClearBackground(WHITE);
